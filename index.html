@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#100d11">
+  <title>Ma Boutique</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root { color-scheme: dark; --bg:#100d11; --panel:#211a22; --muted:#b8adb8; --accent:#ff496b; }
+    * { box-sizing:border-box; }
+    body { margin:0; padding:20px 16px 36px; background:var(--bg); color:#fff; font-family:Arial,Helvetica,sans-serif; }
+    .wrap { max-width:900px; margin:auto; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0 22px; border-bottom:1px solid #352631; }
+    .brand { color:var(--accent); font-weight:900; letter-spacing:2px; font-size:17px; }
+    .pill { border:1px solid #57303b; border-radius:99px; padding:7px 10px; color:#f6b6c4; font-size:12px; }
+    .hero { padding:24px 0 18px; }
+    .eyebrow { color:var(--accent); text-transform:uppercase; letter-spacing:2px; font-size:11px; font-weight:bold; }
+    h1 { font-size:clamp(28px,6vw,42px); margin:9px 0; }
+    .intro { color:var(--muted); line-height:1.5; margin:0; }
+    h2 { font-size:20px; margin:22px 0 14px; }
+    .products { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .product { background:var(--panel); border:1px solid #392a37; border-radius:15px; padding:11px; min-width:0; }
+    .photo { height:112px; border-radius:10px; display:grid; place-items:center; background:linear-gradient(135deg,#3c1b2a,#19151c); font-size:39px; }
+    .product h3 { font-size:15px; margin:12px 0 5px; }
+    .desc { min-height:32px; color:var(--muted); font-size:12px; line-height:1.35; }
+    .price-row { display:flex; justify-content:space-between; align-items:center; gap:6px; margin-top:12px; }
+    .price { font-weight:bold; white-space:nowrap; }
+    button { font:inherit; cursor:pointer; border:0; border-radius:9px; padding:10px 12px; color:white; background:var(--accent); font-weight:bold; }
+    button.secondary { background:#392b39; }
+    .cart { margin-top:24px; background:var(--panel); border:1px solid #392a37; border-radius:15px; padding:16px; }
+    .cart h2 { margin-top:0; }
+    .cart-line { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid #392a37; }
+    .cart-line button { padding:5px 9px; }
+    .total { display:flex; justify-content:space-between; font-size:18px; font-weight:bold; margin:16px 0; }
+    #order { width:100%; }
+    #message { white-space:pre-wrap; overflow-wrap:anywhere; font-size:13px; line-height:1.5; color:#ffe4ea; }
+    .note { color:var(--muted); font-size:12px; line-height:1.5; }
+    footer { text-align:center; color:#887b88; font-size:12px; padding-top:22px; }
+    @media(min-width:600px) { .products { grid-template-columns:repeat(4,minmax(0,1fr)); } .photo { height:140px; } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand" id="brand">MA BOUTIQUE</div>
+    <div class="pill">● Boutique en ligne</div>
+  </header>
+  <section class="hero">
+    <div class="eyebrow">Sélection du moment</div>
+    <h1>Bienvenue chez nous.</h1>
+    <p class="intro">Découvre nos produits et ajoute tes favoris au panier.</p>
+  </section>
+
+  <h2>Catalogue</h2>
+  <section class="products" id="products" aria-label="Catalogue de produits"></section>
+
+  <section class="cart">
+    <h2>🛒 Mon panier</h2>
+    <div id="items" class="note">Ton panier est vide.</div>
+    <div class="total"><span>Total</span><span id="total">0,00 €</span></div>
+    <button id="order" onclick="checkout()">Préparer ma commande</button>
+    <p class="note">Prototype : cette étape prépare un récapitulatif, mais n'envoie pas encore la commande au vendeur.</p>
+    <div id="message" aria-live="polite"></div>
+    <button id="copy" class="secondary" style="display:none;margin-top:10px" onclick="copyOrder()">Copier le récapitulatif</button>
+  </section>
+  <footer>Ma Boutique · Mini App Telegram</footer>
+</div>
+<script>
+  // Remplace ces exemples par tes vrais produits, descriptions et prix.
+  const products = [
+    {id:1, name:"Produit Alpha", description:"Description courte du produit.", price:9.90, emoji:"📦"},
+    {id:2, name:"Produit Beta", description:"Description courte du produit.", price:14.90, emoji:"🎁"},
+    {id:3, name:"Produit Gamma", description:"Description courte du produit.", price:19.90, emoji:"🛍️"},
+    {id:4, name:"Produit Delta", description:"Description courte du produit.", price:24.90, emoji:"✨"}
+  ];
+  const cart = {};
+  let orderText = "";
+  const money = n => n.toLocaleString("fr-FR", {style:"currency", currency:"EUR"});
+
+  const tg = window.Telegram && window.Telegram.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
+  }
+
+  document.getElementById("products").innerHTML = products.map(p => `
+    <article class="product">
+      <div class="photo" role="img" aria-label="${p.name}">${p.emoji}</div>
+      <h3>${p.name}</h3>
+      <div class="desc">${p.description}</div>
+      <div class="price-row">
+        <span class="price">${money(p.price)}</span>
+        <button onclick="addToCart(${p.id})">Ajouter +</button>
+      </div>
+    </article>`).join("");
+
+  function addToCart(id) {
+    cart[id] = (cart[id] || 0) + 1;
+    renderCart();
+  }
+  function changeQty(id, delta) {
+    cart[id] = (cart[id] || 0) + delta;
+    if (cart[id] <= 0) delete cart[id];
+    renderCart();
+  }
+  function renderCart() {
+    const chosen = products.filter(p => cart[p.id]);
+    document.getElementById("items").innerHTML = chosen.length
+      ? chosen.map(p => `<div class="cart-line"><span>${p.name} × ${cart[p.id]}</span><span><button class="secondary" aria-label="Retirer un ${p.name}" onclick="changeQty(${p.id},-1)">−</button> <button class="secondary" aria-label="Ajouter un ${p.name}" onclick="changeQty(${p.id},1)">+</button></span></div>`).join("")
+      : "Ton panier est vide.";
+    const total = chosen.reduce((sum,p) => sum + p.price * cart[p.id], 0);
+    document.getElementById("total").textContent = money(total);
+    document.getElementById("message").textContent = "";
+    document.getElementById("copy").style.display = "none";
+  }
+  function checkout() {
+    const chosen = products.filter(p => cart[p.id]);
+    const message = document.getElementById("message");
+    if (!chosen.length) {
+      message.textContent = "Ajoute au moins un produit avant de préparer ta commande.";
+      return;
+    }
+    const total = chosen.reduce((sum,p) => sum + p.price * cart[p.id], 0);
+    orderText = "Bonjour, je souhaite commander :\n" +
+      chosen.map(p => `• ${p.name} × ${cart[p.id]} : ${money(p.price * cart[p.id])}`).join("\n") +
+      "\nTotal des produits : " + money(total) +
+      "\n\nMerci de me confirmer les frais de livraison et les modalités de paiement.";
+    message.textContent = orderText;
+    document.getElementById("copy").style.display = "inline-block";
+  }
+  async function copyOrder() {
+    try {
+      await navigator.clipboard.writeText(orderText);
+      document.getElementById("copy").textContent = "Copié !";
+    } catch (e) {
+      document.getElementById("message").textContent = orderText + "\n\nSélectionne le texte ci-dessus et copie-le manuellement.";
+    }
+  }
+</script>
+</body>
+</html>
